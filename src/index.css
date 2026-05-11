@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    @apply bg-ink-950 text-white;
+    font-family: 'DM Sans', sans-serif;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-ink-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-500 rounded-full;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-acid text-ink-950 font-display font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 active:scale-95 hover:bg-acid-dim
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-ink-700 text-white font-display font-medium px-6 py-3 rounded-xl
+           border border-ink-600 transition-all duration-200 active:scale-95
+           hover:bg-ink-600 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-coral text-white font-display font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 active:scale-95 hover:bg-coral-dim
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-ink-800 border border-ink-700 rounded-2xl;
+  }
+
+  .input-field {
+    @apply bg-ink-700 border border-ink-600 rounded-xl px-4 py-3 w-full
+           text-white placeholder-ink-500 font-body
+           focus:outline-none focus:border-acid focus:ring-1 focus:ring-acid
+           transition-colors duration-200;
+  }
+
+  .label {
+    @apply text-sm font-display font-medium text-gray-400 mb-1.5 block;
+  }
+
+  .bingo-line {
+    position: relative;
+  }
+
+  .bingo-line::after {
+    content: '';
+    position: absolute;
+    background: linear-gradient(90deg, transparent, #c8f135, transparent);
+    height: 2px;
+    width: 100%;
+    top: 50%;
+    left: 0;
+    animation: slideRight 0.5s ease forwards;
+  }
+
+  .noise-bg {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 241, 53, 0.08) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+}
+
+/* Camera UI */
+.camera-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 100;
+}
+
+.square-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 90vh);
+  height: min(90vw, 90vh);
+}
+
+.corner-marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: #c8f135;
+  border-style: solid;
+  border-width: 0;
+}
+.corner-marker.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 4px; }
+.corner-marker.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 4px; }
+.corner-marker.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 4px; }
+.corner-marker.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 4px; }
+
+/* Confetti particles */
+@keyframes confettiFall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes slideRight {
+  from { width: 0; opacity: 0; left: 50%; }
+  to { width: 100%; opacity: 1; left: 0; }
+}
+
+/* Modal backdrop blur */
+.modal-backdrop {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Safe area padding */
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
