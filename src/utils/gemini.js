@@ -2,7 +2,7 @@
 // Model: gemini-1.5-flash (free tier)
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // 🌟 주소 뒤에 아예 키를 단단히 고정시켜서 404 에러 원천 차단!
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
