@@ -33,17 +33,21 @@ export default function CreateRoomPage() {
     setTopics([...DEFAULT_TOPICS].sort(() => Math.random() - 0.5).slice(0, 25))
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (topics.length < 25) {
-      alert(`미션이 25개 필요합니다. (현재: ${topics.length}개)`)
+      alert(`미션이 25개 필요합니다.\n(현재: ${topics.length}개)`)
       return
     }
-    createRoom({
-      password: password || null,
-      duration,
-      winnerCount,
-      topics: topics.slice(0, 25),
-    })
+    try {
+      await createRoom({
+        password: password || null,
+        duration,
+        winnerCount,
+        topics: topics.slice(0, 25),
+      })
+    } catch (e) {
+      alert('방 생성에 실패했습니다: ' + e.message)
+    }
   }
 
   return (

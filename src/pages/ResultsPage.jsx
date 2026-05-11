@@ -1,113 +1,200 @@
-import React, { useState } from 'react'
-import { Trophy, Sparkles, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
-import { useGame } from '../contexts/GameContext'
-import { analyzePhotos } from '../utils/gemini'
+import React, { useState, useEffect } from 'react'
+import { Trophy, Sparkles, RotateCcw, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { useGame, calcBingoLines } from '../contexts/GameContext'
+import { verifyBoardPhotos } from '../utils/gemini'
+import * as db from '../lib/db' // 수동 업데이트를 위해 import
+
+// 진짜 점수 계산 함수 (통과 +10점, 빙고 +50점, 탈락 -5점)
+function calculateRealScore(board) {
+  let score = 0;
+  let validCount = 0;
+  
+  // 패스 여부를 적용한 가상의 보드 생성 (검증 안 된 건 일단 통과로 간주)
+  const evaluatedBoard = board.map(cell => ({
+    ...cell,
+    isValid: cell.completed && cell.aiPassed !== false
+  }));
+
+  evaluatedBoard.forEach(cell => {
+    if (cell.completed) {
+      if (cell.aiPassed === false) score -= 5; // 패널티
+      else {
+        score += 10;
+        validCount += 1;
+      }
+    }
+  });
+
+  // 유효한 칸으로만 빙고 계산
+  let realBingo = 0;
+  const isV = evaluatedBoard.map(c => c.isValid);
+  for (let r=0; r<5; r++) if ([0,1,2,3,4].every(c => isV[r*5+c])) realBingo++;
+  for (let c=0; c<5; c++) if ([0,1,2,3,4].every(r => isV[r*5+c])) realBingo++;
+  if ([0,6,12,18,24].every(i => isV[i])) realBingo++;
+  if ([4,8,12,16,20].every(i => isV[i])) realBingo++;
+
+  score += (realBingo * 50);
+
+  return { realScore: score, realBingo, validCount };
+}
 
 export default function ResultsPage() {
   const { state, reset } = useGame()
   const { room, currentParticipant, myBoard } = state
-  const [aiResult, setAiResult] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState('')
-  const [aiProgress, setAiProgress] = useState('')
-  const [showBoard, setShowBoard] = useState(false)
+  
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verifyProgress, setVerifyProgress] = useState('')
+  const [hasVerified, setHasVerified] = useState(false)
 
-  const participants = Object.values(room?.participants || {})
-  const sorted = [...participants].sort((a, b) => (b.completedCount || 0) - (a.completedCount || 0))
-  const winnerCount = room?.winnerCount || 3
-  const completedCount = myBoard?.filter(c => c.completed).length || 0
-  const completedPhotos = myBoard?.filter(c => c.completed && c.photo) || []
+  // 모든 참가자의 실시간 '진짜 점수' 계산
+  const participants = Object.values(room?.participants || {}).map(p => {
+    const stats = calculateRealScore(p.board || []);
+    return { ...p, ...stats };
+  });
 
-  const handleAiAnalysis = async () => {
-    setAiLoading(true)
-    setAiError('')
-    setAiResult('')
+  // 진짜 점수 기준으로 정렬
+  const sorted = [...participants].sort((a, b) => b.realScore - a.realScore);
+  const myData = sorted.find(p => p.id === currentParticipant?.id);
+  const myRank = sorted.findIndex(p => p.id === currentParticipant?.id) + 1;
+
+  // 내 AI 심사 시작
+  const handleVerifyMe = async () => {
+    if (hasVerified || !myBoard) return;
+    setIsVerifying(true);
+    setVerifyProgress('사진 제출 중...');
+
     try {
-      const result = await analyzePhotos(
-        myBoard,
-        currentParticipant?.nickname || '참여자',
-        setAiProgress
-      )
-      setAiResult(result)
+      // 1. Gemini로 내 사진 진위 여부 파악
+      const results = await verifyBoardPhotos(myBoard, setVerifyProgress);
+      
+      // 2. 내 로컬 보드에 결과 병합
+      const updatedBoard = myBoard.map(cell => {
+        const match = results.find(r => r.index === cell.index);
+        if (match) return { ...cell, aiPassed: match.passed, aiReason: match.reason };
+        return cell;
+      });
+
+      setVerifyProgress('최종 점수 집계 중...');
+
+      // 3. DB에 내 정보 업데이트 (그러면 모든 사람의 Realtime 화면에서 내 순위가 움직임!)
+      await db.updateParticipantBoard(
+        currentParticipant.id, 
+        updatedBoard, 
+        currentParticipant.completedCount, 
+        currentParticipant.bingoLines
+      );
+
+      setHasVerified(true);
     } catch (err) {
-      setAiError(err.message)
+      alert("심사 중 오류가 났어! 다시 시도해봐: " + err.message);
     } finally {
-      setAiLoading(false)
-      setAiProgress('')
+      setIsVerifying(false);
+      setVerifyProgress('');
     }
   }
 
+  // 이미 검증된 상태인지 확인 (새로고침 시)
+  useEffect(() => {
+    if (myBoard && myBoard.some(c => c.aiPassed !== undefined)) {
+      setHasVerified(true);
+    }
+  }, [myBoard]);
+
   return (
     <div className="min-h-screen bg-ink-950 pb-10">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-ink-950/95 backdrop-blur-sm border-b border-ink-700 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display font-bold text-xl">게임 결과</h1>
-          <button
-            onClick={reset}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white active:scale-95"
-          >
-            <RotateCcw className="w-4 h-4" />
-            처음으로
-          </button>
-        </div>
+      <div className="sticky top-0 z-10 bg-ink-950/95 backdrop-blur-sm border-b border-ink-700 px-4 py-4 flex justify-between">
+        <h1 className="font-display font-bold text-xl flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-acid" /> 심판의 시간
+        </h1>
+        <button onClick={reset} className="text-xs text-gray-400 hover:text-white">나가기</button>
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-6 flex flex-col gap-5">
-        {/* My summary card */}
-        <div className="card p-5 text-center">
-          <div className="text-4xl mb-2">{currentParticipant?.emoji}</div>
-          <h2 className="font-display font-bold text-xl text-white">{currentParticipant?.nickname}</h2>
-          <div className="flex justify-center gap-6 mt-3">
-            <div>
-              <div className="font-display font-bold text-2xl text-acid">{completedCount}</div>
-              <div className="text-xs text-gray-500">완료</div>
-            </div>
-            <div className="w-px bg-ink-700" />
-            <div>
-              <div className="font-display font-bold text-2xl text-acid">{state.currentParticipant?.bingoLines || 0}</div>
-              <div className="text-xs text-gray-500">빙고</div>
-            </div>
-            <div className="w-px bg-ink-700" />
-            <div>
-              <div className="font-display font-bold text-2xl text-acid">
-                #{sorted.findIndex(p => p.id === currentParticipant?.id) + 1}
-              </div>
-              <div className="text-xs text-gray-500">순위</div>
+        
+        {/* 심사 받기 버튼 영역 */}
+        {!hasVerified ? (
+          <div className="card p-6 text-center border-coral/50 bg-coral/5">
+            <AlertTriangle className="w-10 h-10 text-coral mx-auto mb-3" />
+            <h2 className="font-display font-bold text-lg mb-1">스피드런 꼼수 단속반 출동!</h2>
+            <p className="text-sm text-gray-400 mb-4 break-keep">
+              아무거나 찍었는지 AI가 매의 눈으로 심사합니다.<br/>거짓 사진은 -5점, 진짜 빙고만 인정됩니다.
+            </p>
+            <button 
+              onClick={handleVerifyMe} 
+              disabled={isVerifying}
+              className="btn-danger w-full h-12 flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-5 h-5" />
+              {isVerifying ? verifyProgress : '내 사진 AI 심사받기'}
+            </button>
+          </div>
+        ) : (
+          <div className="card p-6 text-center border-acid/50 bg-acid/5">
+            <div className="text-4xl mb-2">{myData?.emoji}</div>
+            <h2 className="font-display font-bold text-xl text-white">최종 내 점수: {myData?.realScore}점</h2>
+            <div className="flex justify-center gap-4 mt-3 text-sm text-gray-400">
+              <span>통과: <span className="text-white">{myData?.validCount}장</span></span>
+              <span>최종 빙고: <span className="text-acid">{myData?.realBingo}줄</span></span>
+              <span>순위: <span className="text-white">{myRank}위</span></span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Leaderboard */}
-        <div className="card p-5">
-          <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-acid" />
-            최종 순위표
+        {/* 심사 후 적발된 사진 갤러리 */}
+        {hasVerified && myData?.board && (
+          <div className="card p-4">
+            <h3 className="font-display font-semibold text-sm mb-3">내 판독 결과</h3>
+            <div className="grid grid-cols-5 gap-1">
+              {myData.board.map((cell, i) => {
+                if (!cell.completed || !cell.photo) return <div key={i} className="aspect-square bg-ink-800 rounded-md" />;
+                const isPassed = cell.aiPassed !== false;
+                
+                return (
+                  <div key={i} className={`relative aspect-square rounded-md overflow-hidden border-2 ${isPassed ? 'border-acid/30' : 'border-coral'}`}>
+                    <img src={cell.photo} alt={cell.topic} className="w-full h-full object-cover opacity-80" />
+                    {!isPassed && (
+                      <div className="absolute inset-0 bg-coral/40 flex flex-col items-center justify-center p-1 text-center">
+                        <XCircle className="w-5 h-5 text-white mb-1 drop-shadow-md" />
+                        <span className="text-[8px] text-white font-bold leading-tight drop-shadow-md">{cell.aiReason}</span>
+                      </div>
+                    )}
+                    {isPassed && cell.aiPassed === true && (
+                      <div className="absolute top-1 right-1">
+                        <CheckCircle2 className="w-3 h-3 text-acid bg-ink-950 rounded-full" />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 실시간 찐 순위표 */}
+        <div className="card p-5 transition-all duration-500">
+          <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+            <span>실시간 진짜 순위표</span>
           </h2>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 relative">
             {sorted.map((p, i) => {
-              const isCurrentUser = p.id === currentParticipant?.id
-              const isWinner = i < winnerCount
-              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null
+              const isMe = p.id === currentParticipant?.id;
+              const hasBeenVerified = p.board?.some(c => c.aiPassed !== undefined);
 
               return (
-                <div
-                  key={p.id}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
-                    isWinner ? 'bg-acid/5 border border-acid/20' : 'bg-ink-800'
-                  } ${isCurrentUser ? 'ring-2 ring-acid/40' : ''}`}
-                >
-                  <div className="w-8 text-center shrink-0">
-                    {medal ? <span className="text-xl">{medal}</span> : <span className="text-gray-500 font-mono">#{i+1}</span>}
-                  </div>
-                  <span className="text-2xl">{p.emoji}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display font-semibold text-white">{p.nickname}</span>
-                      {isWinner && <Trophy className="w-3.5 h-3.5 text-acid" />}
-                    </div>
+                <div key={p.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-transform duration-500 ${isMe ? 'bg-acid/10 border border-acid/30' : 'bg-ink-800'}`}>
+                  <div className="w-6 text-center font-mono text-gray-500 text-sm">#{i+1}</div>
+                  <span className="text-2xl relative">
+                    {p.emoji}
+                    {hasBeenVerified && <Sparkles className="w-3 h-3 text-acid absolute -top-1 -right-1" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-semibold text-white truncate">{p.nickname}</div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {p.completedCount || 0}칸 완료 · {p.bingoLines || 0}빙고
+                      {hasBeenVerified ? (
+                        <span className="text-acid">{p.realBingo}빙고 · {p.realScore}점</span>
+                      ) : (
+                        <span>심사 대기중... (가점수: {p.realScore})</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -116,100 +203,6 @@ export default function ResultsPage() {
           </div>
         </div>
 
-        {/* Photo grid */}
-        {completedPhotos.length > 0 && (
-          <div className="card p-5">
-            <button
-              onClick={() => setShowBoard(!showBoard)}
-              className="w-full flex items-center justify-between"
-            >
-              <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest">
-                내 사진 ({completedPhotos.length}장)
-              </h2>
-              {showBoard ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </button>
-
-            {showBoard && (
-              <div className="grid grid-cols-3 gap-2 mt-4">
-                {completedPhotos.map((cell, i) => (
-                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden">
-                    <img src={cell.photo} alt={cell.topic} className="w-full h-full object-cover" />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                      <p className="text-[10px] text-white font-body leading-tight truncate">{cell.topic}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* AI Analysis */}
-        <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4 text-acid" />
-            <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest">AI 성향 분석</h2>
-          </div>
-
-          {!aiResult && !aiLoading && (
-            <div className="text-center py-4">
-              <p className="text-gray-400 text-sm mb-4">
-                내가 찍은 {completedPhotos.length}장의 사진을 AI가 분석해드려요
-              </p>
-              <button
-                onClick={handleAiAnalysis}
-                disabled={completedPhotos.length === 0}
-                className="btn-primary flex items-center gap-2 mx-auto"
-              >
-                <Sparkles className="w-4 h-4" />
-                AI 분석 시작
-              </button>
-              {import.meta.env.VITE_GEMINI_API_KEY ? null : (
-                <p className="text-xs text-gray-500 mt-2">
-                  ⚠️ VITE_GEMINI_API_KEY 환경 변수를 설정하세요
-                </p>
-              )}
-            </div>
-          )}
-
-          {aiLoading && (
-            <div className="text-center py-6">
-              <div className="w-10 h-10 border-2 border-acid border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-acid text-sm font-display">{aiProgress || '분석 중...'}</p>
-            </div>
-          )}
-
-          {aiError && (
-            <div className="bg-coral/10 border border-coral/30 rounded-xl p-4">
-              <p className="text-coral text-sm">{aiError}</p>
-              <button onClick={handleAiAnalysis} className="text-xs text-gray-400 hover:text-white mt-2 underline">
-                다시 시도
-              </button>
-            </div>
-          )}
-
-          {aiResult && (
-            <div className="bg-ink-700 rounded-xl p-4">
-              <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap font-body">
-                {aiResult}
-              </div>
-              <button
-                onClick={handleAiAnalysis}
-                className="text-xs text-gray-500 hover:text-acid mt-3 underline"
-              >
-                다시 분석
-              </button>
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={reset}
-          className="btn-secondary w-full h-12 flex items-center justify-center gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          새 게임 시작
-        </button>
       </div>
     </div>
   )

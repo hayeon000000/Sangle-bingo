@@ -114,3 +114,70 @@ export async function analyzePhotos(board, participantName, onProgress) {
 
   return text
 }
+/**
+ * 게임 종료 후 사진의 진위 여부를 엄격하게 판독합니다.
+ */
+export async function verifyBoardPhotos(board, onProgress) {
+  if (!GEMINI_API_KEY) throw new Error('API 키가 없습니다.');
+
+  // 사진이 있는 칸만 필터링
+  const cellsToVerify = board.filter(cell => cell.completed && cell.photo);
+  if (cellsToVerify.length === 0) return [];
+
+  onProgress?.('AI가 사진을 꼼꼼히 검사 중입니다 🕵️...');
+
+  // 멀티모달 이미지 파트 생성
+  const imageParts = cellsToVerify.map(cell => {
+    const base64Data = cell.photo.split(',')[1];
+    const mimeType = cell.photo.split(';')[0].split(':')[1] || 'image/jpeg';
+    return { inlineData: { mimeType, data: base64Data } };
+  });
+
+  // 어떤 사진이 어떤 주제인지 AI에게 알려주기 위한 매핑 텍스트
+  const topicsMap = cellsToVerify.map((cell, idx) => 
+    `[이미지 ${idx + 1}] 인덱스: ${cell.index}, 미션 주제: "${cell.topic}"`
+  ).join('\n');
+
+  const prompt = `
+  너는 아주 엄격하고 단호한 사진 대회 심사위원이야.
+  내가 ${cellsToVerify.length}장의 사진을 보냈어. 각 사진의 미션 주제는 아래와 같아:
+  ${topicsMap}
+
+  각 이미지가 할당된 미션 주제를 제대로 포함하고 있거나 잘 표현했는지 '매우 엄격하게' 판독해. (예: 주제가 '하늘 반사'인데 물이나 유리 반사 없이 그냥 하늘만 찍었으면 탈락)
+
+  응답은 반드시 아래 형식의 JSON 배열(Array)로만 해줘. 마크다운(\`\`\`json)이나 다른 설명은 절대 넣지 마.
+  [
+    {
+      "index": (위에서 알려준 인덱스 번호),
+      "passed": true 혹은 false,
+      "reason": "통과 또는 탈락한 이유를 한국어로 짧게 (20자 이내)"
+    }
+  ]
+  `.trim();
+
+  const requestBody = {
+    contents: [{ parts: [{ text: prompt }, ...imageParts] }],
+    generationConfig: {
+      temperature: 0.1, // 창의성보다는 정확성을 위해 낮춤
+      responseMimeType: "application/json", // JSON 강제 (중요!)
+    }
+  };
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) throw new Error('AI 심사 중 오류가 발생했습니다.');
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  try {
+    return JSON.parse(text); // [{ index: 1, passed: false, reason: "..." }]
+  } catch (e) {
+    console.error("JSON Parse Error:", text);
+    return [];
+  }
+}
