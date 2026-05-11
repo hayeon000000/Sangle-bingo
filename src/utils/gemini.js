@@ -1,15 +1,8 @@
 // ─── Gemini API Utility ───────────────────────────────────────────────────
-// Model: gemini-1.5-flash (free tier)
-
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-2.5-flash';
-
-// 🌟 주소 뒤에 아예 키를 단단히 고정시켜서 404 에러 원천 차단!
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-/**
- * Build the analysis prompt from board data.
- */
 export function buildAnalysisPrompt(board, participantName) {
   const completedTopics = board
     .filter(cell => cell.completed)
@@ -35,26 +28,53 @@ ${completedTopics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
   `.trim();
 }
 
+// 🌟 [핵심] 아이폰 튕김 방지용 사진 다이어트(압축) 함수
+async function compressImage(base64Str) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 800; // 가로 길이를 최대 800px로 줄임
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_WIDTH) {
+        height = Math.round((height * MAX_WIDTH) / width);
+        width = MAX_WIDTH;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // 화질을 60%로 낮춰서 아이폰 사진 용량을 대폭 깎아냅니다!
+      resolve(canvas.toDataURL('image/jpeg', 0.6)); 
+    };
+    img.onerror = () => resolve(base64Str); // 에러 시 원본 반환
+    img.src = base64Str;
+  });
+}
+
 /**
- * Analyze bingo photos using Gemini Vision API (결과 페이지용)
+ * 결과 페이지 사진 분석
  */
 export async function analyzePhotos(board, participantName, onProgress) {
-  if (!GEMINI_API_KEY) {
-    throw new Error('API 키가 설정되지 않았습니다.');
-  }
+  if (!GEMINI_API_KEY) throw new Error('API 키가 설정되지 않았습니다.');
 
   const completedCells = board.filter(cell => cell.completed && cell.photo);
-  if (completedCells.length === 0) {
-    throw new Error('분석할 사진이 없습니다.');
-  }
+  if (completedCells.length === 0) throw new Error('분석할 사진이 없습니다.');
 
   onProgress?.('사진을 분석 중...');
 
-  const imageParts = completedCells.slice(0, 10).map(cell => {
-    const base64Data = cell.photo.split(',')[1];
-    const mimeType = cell.photo.split(';')[0].split(':')[1] || 'image/jpeg';
-    return { inlineData: { mimeType, data: base64Data } };
-  });
+  // 분석 전에도 무조건 압축!
+  const imageParts = await Promise.all(
+    completedCells.slice(0, 10).map(async (cell) => {
+      const compressed = await compressImage(cell.photo);
+      const base64Data = compressed.split(',')[1];
+      return { inlineData: { mimeType: 'image/jpeg', data: base64Data } };
+    })
+  );
 
   const prompt = buildAnalysisPrompt(board, participantName);
 
@@ -81,22 +101,24 @@ export async function analyzePhotos(board, participantName, onProgress) {
 }
 
 /**
- * 게임 종료 후 사진의 진위 여부를 엄격하게 판독합니다. (심사 버튼용)
+ * 게임 중 심사받기 버튼용
  */
 export async function verifyBoardPhotos(board, onProgress) {
   if (!GEMINI_API_KEY) throw new Error('API 키가 없습니다.');
 
-  // 심사할 사진 필터링
   const cellsToVerify = board.filter(cell => cell.completed && cell.photo);
   if (cellsToVerify.length === 0) return [];
 
   onProgress?.('AI가 사진을 꼼꼼히 검사 중입니다 🕵️...');
 
-  const imageParts = cellsToVerify.map(cell => {
-    const base64Data = cell.photo.split(',')[1];
-    const mimeType = cell.photo.split(';')[0].split(':')[1] || 'image/jpeg';
-    return { inlineData: { mimeType, data: base64Data } };
-  });
+  // 🌟 심사 전 아이폰 사진 무조건 압축!
+  const imageParts = await Promise.all(
+    cellsToVerify.map(async (cell) => {
+      const compressed = await compressImage(cell.photo);
+      const base64Data = compressed.split(',')[1];
+      return { inlineData: { mimeType: 'image/jpeg', data: base64Data } };
+    })
+  );
 
   const topicsMap = cellsToVerify.map((cell, idx) => 
     `[이미지 ${idx + 1}] 인덱스: ${cell.index}, 미션 주제: "${cell.topic}"`
@@ -140,13 +162,11 @@ export async function verifyBoardPhotos(board, onProgress) {
   
   if (!text) return [];
 
-  // 🌟 AI가 말썽부려서 마크다운 백틱(```)을 붙여 보낼 경우를 대비한 찌꺼기 청소
   text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
   try {
     return JSON.parse(text); 
   } catch (e) {
-    console.error("JSON 파싱 에러! AI의 원본 응답:", text);
     throw new Error('AI가 결과를 엉뚱하게 줬어요. 다시 시도해 주세요!');
   }
 }
