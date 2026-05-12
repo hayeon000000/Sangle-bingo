@@ -65,7 +65,7 @@ export function GameProvider({ children }) {
     currentParticipant: null,
     myBoard: null,
     loading: false,
-    participants: {}, // 🌟 핵심! 클로드 UI와 연결되도록 참가자 명단을 밖으로 뺐습니다.
+    participants: {}, 
   })
 
   useEffect(() => {
@@ -100,7 +100,6 @@ export function GameProvider({ children }) {
       }))
     })
 
-    // 🌟 실시간 참가자 명단을 최상위 participants 에 바로 업데이트!
     const unsubParts = db.subscribeParticipants(
       roomId,
       (newPart) => setState(prev => ({
@@ -128,7 +127,7 @@ export function GameProvider({ children }) {
       setState(p => ({
         ...p,
         room: db.dbRoomToState(row),
-        participants: {}, // 🌟 방 만들 때 참가자 명단 초기화
+        participants: {}, 
         isMaster: true,
         view: 'master-lobby',
         loading: false
@@ -146,18 +145,23 @@ export function GameProvider({ children }) {
       if (fetchedRoom.password && fetchedRoom.password !== password) throw new Error('비밀번호가 틀렸습니다.')
       if (fetchedRoom.status === 'finished') throw new Error('이미 종료된 게임입니다.')
 
-      const partsList = await db.fetchParticipants(roomId)
-      const participantsDict = partsList.reduce((acc, p) => ({ ...acc, [p.id]: p }), {})
-      
+      // 🌟 1. 내가 먼저 입장합니다 (DB에 내 정보 저장)
       const shuffledTopics = buildBoard(shuffleArray(fetchedRoom.topics))
       const { board, ...participantInfo } = await db.joinRoom({
         roomId, nickname, emoji, board: shuffledTopics
       })
 
+      // 🌟 2. 그리고 나서 전체 명단을 부릅니다 (그래야 내가 포함됨)
+      const partsList = await db.fetchParticipants(roomId)
+      const participantsDict = partsList.reduce((acc, p) => ({ ...acc, [p.id]: p }), {})
+      
+      // 🌟 3. 혹시나 지연될까봐 내 정보를 명단에 강제로 한 번 더 꽂아넣습니다!
+      participantsDict[participantInfo.id] = participantInfo;
+
       setState(p => ({
         ...p,
         room: fetchedRoom,
-        participants: participantsDict, // 🌟 방 들어갈 때 전체 참가자 목록 불러오기
+        participants: participantsDict, 
         currentParticipant: participantInfo,
         myBoard: shuffledTopics,
         view: 'game',
@@ -195,7 +199,7 @@ export function GameProvider({ children }) {
       ...p,
       myBoard: newBoard,
       currentParticipant: updatedParticipant,
-      participants: { ...(p.participants || {}), [updatedParticipant.id]: updatedParticipant } // 🌟 내 점수도 실시간 목록에 즉시 반영
+      participants: { ...(p.participants || {}), [updatedParticipant.id]: updatedParticipant } 
     }))
 
     db.savePhotoLocally(currentParticipant.id, cellIndex, photo)
