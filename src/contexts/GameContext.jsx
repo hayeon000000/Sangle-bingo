@@ -64,10 +64,10 @@ export function GameProvider({ children }) {
     isMaster: false,
     currentParticipant: null,
     myBoard: null,
-    loading: false, // 🌟 클로드의 새 UI와 호환되도록 이름 변경
+    loading: false,
+    participants: {}, // 🌟 핵심! 클로드 UI와 연결되도록 참가자 명단을 밖으로 뺐습니다.
   })
 
-  // 새로고침 시 세션 복구
   useEffect(() => {
     const session = db.loadSession()
     if (session) {
@@ -83,13 +83,11 @@ export function GameProvider({ children }) {
     }
   }, [])
 
-  // 상태 변경 시 세션 저장
   useEffect(() => {
-    const { view, room, isMaster, currentParticipant } = state
-    db.saveSession({ view, room, isMaster, currentParticipant })
-  }, [state.view, state.room, state.isMaster, state.currentParticipant])
+    const { view, room, isMaster, currentParticipant, participants } = state
+    db.saveSession({ view, room, isMaster, currentParticipant, participants })
+  }, [state.view, state.room, state.isMaster, state.currentParticipant, state.participants])
 
-  // Realtime 구독 (실시간 멀티플레이어 동기화)
   useEffect(() => {
     const roomId = state.room?.id
     if (!roomId) return
@@ -102,15 +100,16 @@ export function GameProvider({ children }) {
       }))
     })
 
+    // 🌟 실시간 참가자 명단을 최상위 participants 에 바로 업데이트!
     const unsubParts = db.subscribeParticipants(
       roomId,
       (newPart) => setState(prev => ({
         ...prev,
-        room: prev.room ? { ...prev.room, participants: { ...prev.room.participants, [newPart.id]: newPart } } : null
+        participants: { ...(prev.participants || {}), [newPart.id]: newPart } 
       })),
       (updatedPart) => setState(prev => ({
         ...prev,
-        room: prev.room ? { ...prev.room, participants: { ...prev.room.participants, [updatedPart.id]: updatedPart } } : null
+        participants: { ...(prev.participants || {}), [updatedPart.id]: updatedPart }
       }))
     )
 
@@ -120,7 +119,6 @@ export function GameProvider({ children }) {
     }
   }, [state.room?.id])
 
-  // Actions
   const setView = useCallback((view) => setState(p => ({ ...p, view })), [])
 
   const createRoom = useCallback(async (settings) => {
@@ -129,7 +127,8 @@ export function GameProvider({ children }) {
       const { row, masterKey, id } = await db.createRoom(settings)
       setState(p => ({
         ...p,
-        room: { ...db.dbRoomToState(row), participants: {} },
+        room: db.dbRoomToState(row),
+        participants: {}, // 🌟 방 만들 때 참가자 명단 초기화
         isMaster: true,
         view: 'master-lobby',
         loading: false
@@ -157,7 +156,8 @@ export function GameProvider({ children }) {
 
       setState(p => ({
         ...p,
-        room: { ...fetchedRoom, participants: participantsDict },
+        room: fetchedRoom,
+        participants: participantsDict, // 🌟 방 들어갈 때 전체 참가자 목록 불러오기
         currentParticipant: participantInfo,
         myBoard: shuffledTopics,
         view: 'game',
@@ -191,14 +191,13 @@ export function GameProvider({ children }) {
 
     const updatedParticipant = { ...currentParticipant, board: newBoard, completedCount, bingoLines }
 
-    // 로컬 상태 즉시 업데이트
     setState(p => ({
       ...p,
       myBoard: newBoard,
-      currentParticipant: updatedParticipant
+      currentParticipant: updatedParticipant,
+      participants: { ...(p.participants || {}), [updatedParticipant.id]: updatedParticipant } // 🌟 내 점수도 실시간 목록에 즉시 반영
     }))
 
-    // 로컬 스토리지 및 DB 동기화
     db.savePhotoLocally(currentParticipant.id, cellIndex, photo)
     try {
       await db.updateParticipantBoard(currentParticipant.id, newBoard, completedCount, bingoLines)
@@ -209,7 +208,7 @@ export function GameProvider({ children }) {
 
   const reset = useCallback(() => {
     db.clearSession()
-    setState({ view: 'home', room: null, isMaster: false, currentParticipant: null, myBoard: null, loading: false })
+    setState({ view: 'home', room: null, isMaster: false, currentParticipant: null, myBoard: null, loading: false, participants: {} })
   }, [])
 
   return (
