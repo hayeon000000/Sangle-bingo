@@ -19,7 +19,7 @@ function HomePage() {
           <img 
             src={logoImg} 
             alt="Bingo S'ANGLE Logo" 
-            className="w-48 h-auto object-contain" 
+            className="w-16 h-auto object-contain" 
           />
         </div>
 
@@ -31,9 +31,9 @@ function HomePage() {
             // 🌟 하연 님의 Router 코드에 적힌 'create-room' 뷰로 변경!
             onClick={() => setView('create-room')} 
             /* 버튼 크기 조절: py-4(높이), text-lg(글자크기) 조절 가능 */
-            className="w-full bg-cyan-400 text-white font-bold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg"
+            className="w-full bg-cyan-400 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg"
           >
-            <FiPlus className="w-6 h-6" />
+            <FiPlus className="w-3 h-3" />
             방 만들기
           </button>
 
@@ -41,9 +41,9 @@ function HomePage() {
           <button 
             // 🌟 하연 님의 Router 코드에 적힌 'join-room' 뷰로 변경!
             onClick={() => setView('join-room')} 
-            className="w-full bg-[#313541] text-cyan-400 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg border border-cyan-900"
+            className="w-full bg-[#313541] text-cyan-400 font-bold py-2 px-4 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg border border-cyan-900"
           >
-            <FiLogIn className="w-6 h-6" />
+            <FiLogIn className="w-3 h-3" />
             방 참여하기
           </button>
         
