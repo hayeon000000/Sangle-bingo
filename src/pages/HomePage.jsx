@@ -1,76 +1,62 @@
-import React from 'react'
-import { Camera, Users, Plus, LogIn } from 'lucide-react'
-import { useGame } from '../contexts/GameContext'
+import React from 'react';
+import { FiPlus, FiLogIn } from 'react-icons/fi'; 
+import logoImg from '../assets/logo.png'; 
+import { useGame } from '../contexts/GameContext'; // 경로 확인 완료!
 
-export default function HomePage() {
-  const { setView } = useGame()
+function HomePage() {
+  // 🌟 하연 님의 프로젝트 전용: setView 함수를 가져옵니다.
+  const { setView } = useGame(); 
 
   return (
-    <div className="min-h-screen bg-ink-950 flex flex-col items-center justify-center p-6 noise-bg">
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-acid opacity-5 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-8 animate-slide-up">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-3xl bg-ink-800 border border-ink-600 flex items-center justify-center shadow-2xl">
-              <Camera className="w-12 h-12 text-acid" strokeWidth={1.5} />
-            </div>
-            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-acid flex items-center justify-center">
-              <span className="text-ink-950 text-xs font-bold">B</span>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <h1 className="font-display text-4xl font-bold text-white tracking-tight">
-              Photo<span className="text-acid">Bingo</span>
-            </h1>
-            <p className="text-gray-500 text-sm mt-1 font-body">
-              출사 모임을 위한 실시간 빙고 게임
-            </p>
-          </div>
+    <div className="h-screen w-screen bg-[#20232A] flex justify-center items-center p-6"
+      /* 🌟 1. 안쪽으로 퍼지는 네온 효과 (inset) */
+      style={{ boxShadow: 'inset 0 0 20px 5px rgba(0, 255, 245, 0.6)' }}
+    >
+      <div className="flex-grow flex flex-col justify-center items-center space-y-12 w-full max-w-sm">
+        
+        {/* 🌟 2. 로고 섹션 (크기: w-48 부분을 w-32~w-64 사이로 조절하세요) */}
+        <div className="flex flex-col items-center">
+          <img 
+            src={logoImg} 
+            alt="Bingo S'ANGLE Logo" 
+            className="w-24 h-auto object-contain" 
+          />
         </div>
 
-        {/* Actions */}
-        <div className="w-full flex flex-col gap-3">
-          <button
-            onClick={() => setView('create-room')}
-            className="btn-primary w-full flex items-center justify-center gap-2 h-14 text-base"
+        {/* 🌟 3. 버튼 섹션 */}
+        <div className="w-full flex flex-col items-center space-y-5">
+          
+          {/* 방 만들기 버튼 */}
+          <button 
+            // 🌟 하연 님의 Router 코드에 적힌 'create-room' 뷰로 변경!
+            onClick={() => setView('create-room')} 
+            /* 버튼 크기 조절: py-4(높이), text-lg(글자크기) 조절 가능 */
+            className="w-64 bg-[#00FFF5] text-[#222831] font-bold py-2 px-4 rounded-full flex items-center justify-center gap-3 text-5 transition-all active:scale-95 shadow-lg"
           >
-            <Plus className="w-5 h-5" />
+            <FiPlus className="w-6 h-6" />
             방 만들기
           </button>
 
-          <button
-            onClick={() => setView('join-room')}
-            className="btn-secondary w-full flex items-center justify-center gap-2 h-14 text-base"
+          {/* 방 참여하기 버튼 */}
+          <button 
+            // 🌟 하연 님의 Router 코드에 적힌 'join-room' 뷰로 변경!
+            onClick={() => setView('join-room')} 
+            className="w-64 bg-[#313541] text-[#00FFF5] font-bold py-2 px-4 rounded-full flex items-center justify-center gap-3 text-5 transition-all active:scale-95 shadow-lg border border-[#00FFF5]"
           >
-            <LogIn className="w-5 h-5" />
+            <FiLogIn className="w-6 h-6" />
             방 참여하기
           </button>
+        
         </div>
 
-        {/* Feature highlights */}
-        <div className="w-full grid grid-cols-3 gap-3">
-          {[
-            { icon: '📸', label: '카메라 촬영' },
-            { icon: '🤖', label: 'AI 분석' },
-            { icon: '🏆', label: '실시간 순위' },
-          ].map(({ icon, label }) => (
-            <div key={label} className="card p-3 text-center">
-              <div className="text-2xl mb-1">{icon}</div>
-              <div className="text-xs text-gray-400 font-body">{label}</div>
-            </div>
-          ))}
+        {/* 4. 바닥글 */}
+        <div className="absolute bottom-10">
+          <p className="text-gray-500 text-sm tracking-widest">@sswu_s_angle</p>
         </div>
 
-        <p className="text-xs text-gray-600 text-center font-mono">
-          v1.0.0 · Photo Bingo
-        </p>
       </div>
     </div>
-  )
+  );
 }
+
+export default HomePage;
