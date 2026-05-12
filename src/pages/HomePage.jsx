@@ -24,7 +24,7 @@ function HomePage() {
         </div>
 
         {/* 🌟 3. 버튼 섹션 */}
-        <div className="w-full space-y-5">
+        <div className="w-full flex flex-col items-center space-y-5">
           
           {/* 방 만들기 버튼 */}
           <button 
