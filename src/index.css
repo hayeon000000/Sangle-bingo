@@ -72,7 +72,7 @@
   .bingo-line::after {
     content: '';
     position: absolute;
-    background: linear-gradient(90deg, transparent, #c8f135, transparent);
+    background: linear-gradient(90deg, transparent, #00FFF5, transparent);
     height: 2px;
     width: 100%;
     top: 50%;
