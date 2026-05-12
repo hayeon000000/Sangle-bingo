@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { Copy, Check, Play, StopCircle, Users, Trophy, Clock } from 'lucide-react'
-import { useGame, calcBingoLines } from '../contexts/GameContext'
+import React, { useState, useEffect } from 'react'
+import { FiCopy, FiCheck, FiPlay, FiStopCircle, FiUsers, FiAward, FiClock, FiLogIn } from 'react-icons/fi'
+import { useGame } from '../contexts/GameContext'
 import { useTimer } from '../hooks/useTimer'
 
 export default function MasterLobbyPage() {
@@ -8,125 +8,118 @@ export default function MasterLobbyPage() {
   const { room } = state
   const [copied, setCopied] = useState(false)
 
-  const participants = Object.values(room?.participants || {})
+  const participants = Object.values(state.participants || {})
   const isPlaying = room?.status === 'playing'
 
   const { formatted, isUrgent, start, isRunning } = useTimer(
-    room?.duration || 30,
-    () => endGame()
+    room?.duration || 30, () => endGame()
   )
 
-  const handleStart = () => {
-    startGame()
-    start(Date.now())
-  }
+  useEffect(() => {
+    if (isPlaying && room?.startedAt && !isRunning) start(room.startedAt)
+  }, [isPlaying, room?.startedAt])
 
+  const handleStart = () => { startGame(); start(Date.now()) }
   const handleCopy = () => {
     navigator.clipboard.writeText(room.id)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
-  const sortedParticipants = [...participants].sort(
-    (a, b) => (b.completedCount || 0) - (a.completedCount || 0)
-  )
+  const sorted = [...participants].sort((a, b) => (b.completedCount || 0) - (a.completedCount || 0))
+
+  const neonStyle = { boxShadow: 'inset 0 0 20px 5px rgba(0, 255, 245, 0.6)' }
 
   return (
-    <div className="min-h-screen bg-ink-950 pb-8">
+    <div className="min-h-screen w-screen bg-[#20232A] flex flex-col" style={neonStyle}>
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-ink-950/95 backdrop-blur-sm border-b border-ink-700 px-4 py-4">
+      <div className="px-5 pt-8 pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-acid animate-pulse" />
-              <span className="text-xs text-gray-500 font-mono uppercase tracking-widest">마스터 대시보드</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-[#00FFF5] animate-pulse inline-block" />
+              <span className="text-[#00FFF5]/60 text-xs font-mono uppercase tracking-widest">마스터 대시보드</span>
             </div>
-            <h1 className="font-display font-bold text-xl mt-0.5">방 #{room?.id}</h1>
+            <h1 className="text-white font-bold text-2xl">방 #{room?.id}</h1>
           </div>
           {isPlaying && (
-            <div className={`font-mono text-2xl font-bold ${isUrgent ? 'text-coral animate-pulse' : 'text-acid'}`}>
+            <div className={`font-mono text-3xl font-bold ${isUrgent ? 'text-[#ff6b6b] animate-pulse' : 'text-[#00FFF5]'}`}
+              style={isUrgent ? { textShadow: '0 0 12px rgba(255,107,107,0.8)' } : { textShadow: '0 0 12px rgba(0,255,245,0.6)' }}>
               {formatted}
             </div>
           )}
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-5 flex flex-col gap-5">
-        {/* Room code share */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest">방 코드 공유</h2>
-          </div>
+      <div className="flex-1 overflow-y-auto px-5 pb-10 flex flex-col gap-4">
+
+        {/* 방 코드 공유 */}
+        <div className="bg-[#2a2d35] border border-[#00FFF5]/20 rounded-2xl p-5">
+          <p className="text-[#00FFF5] text-xs font-bold uppercase tracking-widest mb-3">방 코드 공유</p>
           <div className="flex items-center gap-3">
-            <div className="flex-1 bg-ink-700 rounded-xl px-4 py-3 font-mono text-2xl tracking-widest text-center text-white">
+            <div className="flex-1 bg-[#20232A] border border-[#00FFF5]/30 rounded-xl px-4 py-3 font-mono text-2xl tracking-[0.3em] text-center text-white"
+              style={{ textShadow: '0 0 10px rgba(0,255,245,0.5)' }}>
               {room?.id}
             </div>
-            <button
-              onClick={handleCopy}
-              className="w-12 h-12 rounded-xl bg-acid flex items-center justify-center active:scale-95"
-            >
-              {copied ? <Check className="w-5 h-5 text-ink-950" /> : <Copy className="w-5 h-5 text-ink-950" />}
+            <button onClick={handleCopy}
+              className="w-12 h-12 rounded-full bg-[#00FFF5] text-[#20232A] flex items-center justify-center active:scale-90 transition-all"
+              style={{ boxShadow: '0 0 15px rgba(0,255,245,0.5)' }}>
+              {copied ? <FiCheck className="w-5 h-5" /> : <FiCopy className="w-5 h-5" />}
             </button>
           </div>
-          <div className="flex gap-3 mt-3 text-xs text-gray-500">
-            {room?.password && <span>🔒 비밀번호: {room.password}</span>}
+          <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500">
+            {room?.password && <span>🔒 {room.password}</span>}
             <span>⏱ {room?.duration}분</span>
             <span>🏆 우승자 {room?.winnerCount}명</span>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* 통계 */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: Users, label: '참여자', value: participants.length },
-            { icon: Trophy, label: '완료', value: participants.filter(p => p.completedCount >= 25).length },
-            { icon: Clock, label: '제한', value: `${room?.duration}분` },
+            { icon: FiUsers, label: '참여자', value: participants.length },
+            { icon: FiAward, label: '완료', value: participants.filter(p => (p.completedCount||0) >= 25).length },
+            { icon: FiClock, label: '제한', value: `${room?.duration}분` },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="card p-4 text-center">
-              <Icon className="w-5 h-5 text-acid mx-auto mb-2" />
-              <div className="font-display font-bold text-xl text-white">{value}</div>
+            <div key={label} className="bg-[#2a2d35] border border-[#00FFF5]/20 rounded-2xl p-4 text-center">
+              <Icon className="w-5 h-5 text-[#00FFF5] mx-auto mb-1.5" />
+              <div className="font-bold text-xl text-white">{value}</div>
               <div className="text-xs text-gray-500">{label}</div>
             </div>
           ))}
         </div>
 
-        {/* Participant list */}
-        <div className="card p-5">
-          <h2 className="font-display font-semibold text-sm text-gray-400 uppercase tracking-widest mb-4">
+        {/* 참여자 현황 */}
+        <div className="bg-[#2a2d35] border border-[#00FFF5]/20 rounded-2xl p-5">
+          <p className="text-[#00FFF5] text-xs font-bold uppercase tracking-widest mb-4">
             참여자 현황 ({participants.length}명)
-          </h2>
-
+          </p>
           {participants.length === 0 ? (
             <div className="text-center py-8 text-gray-600">
-              <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">아직 참여자가 없습니다</p>
+              <FiUsers className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">참여자를 기다리는 중...</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sortedParticipants.map((p, i) => {
+              {sorted.map((p, i) => {
                 const pct = Math.round(((p.completedCount || 0) / 25) * 100)
                 return (
-                  <div key={p.id} className="flex items-center gap-3 bg-ink-700 rounded-xl p-3">
-                    <span className="text-gray-500 font-mono text-xs w-5">#{i + 1}</span>
-                    <div className="w-9 h-9 rounded-xl bg-ink-600 flex items-center justify-center text-xl shrink-0">
+                  <div key={p.id} className="flex items-center gap-3 bg-[#20232A] border border-[#00FFF5]/10 rounded-xl p-3">
+                    <span className="text-[#00FFF5]/40 font-mono text-xs w-5">#{i+1}</span>
+                    <div className="w-9 h-9 rounded-xl bg-[#313541] border border-[#00FFF5]/20 flex items-center justify-center text-xl shrink-0">
                       {p.emoji}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-display font-medium text-sm text-white truncate">{p.nickname}</div>
+                      <div className="font-bold text-sm text-white truncate">{p.nickname}</div>
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 h-1.5 bg-ink-600 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-acid rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
+                        <div className="flex-1 h-1.5 bg-[#313541] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#00FFF5] rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, boxShadow: pct > 0 ? '0 0 6px rgba(0,255,245,0.6)' : 'none' }} />
                         </div>
-                        <span className="text-xs text-gray-400 font-mono shrink-0">
-                          {p.completedCount || 0}/25
-                        </span>
+                        <span className="text-xs text-gray-400 font-mono shrink-0">{p.completedCount||0}/25</span>
                       </div>
                     </div>
-                    {(p.bingoLines || 0) > 0 && (
-                      <div className="text-xs font-bold text-acid bg-acid/10 px-2 py-1 rounded-lg">
+                    {(p.bingoLines||0) > 0 && (
+                      <div className="text-xs font-bold text-[#00FFF5] bg-[#00FFF5]/10 border border-[#00FFF5]/30 px-2 py-1 rounded-full">
                         {p.bingoLines}빙고
                       </div>
                     )}
@@ -137,34 +130,25 @@ export default function MasterLobbyPage() {
           )}
         </div>
 
-        {/* Control buttons */}
-        <div className="flex flex-col gap-3">
-          {!isPlaying ? (
-            <button
-              onClick={handleStart}
-              className="btn-primary w-full h-14 text-base flex items-center justify-center gap-2"
-            >
-              <Play className="w-5 h-5" />
-              게임 시작
-            </button>
-          ) : (
-            <button
-              onClick={endGame}
-              className="btn-danger w-full h-14 text-base flex items-center justify-center gap-2"
-            >
-              <StopCircle className="w-5 h-5" />
-              게임 강제 종료
-            </button>
-          )}
-        </div>
+        {/* 컨트롤 */}
+        {!isPlaying ? (
+          <button onClick={handleStart}
+            className="w-full bg-[#00FFF5] text-[#20232A] font-bold py-3 rounded-full flex items-center justify-center gap-2 text-base active:scale-95 transition-all"
+            style={{ boxShadow: '0 0 20px rgba(0,255,245,0.5)' }}>
+            <FiPlay className="w-5 h-5" /> 게임 시작
+          </button>
+        ) : (
+          <button onClick={endGame}
+            className="w-full bg-[#ff6b6b] text-white font-bold py-3 rounded-full flex items-center justify-center gap-2 text-base active:scale-95 transition-all"
+            style={{ boxShadow: '0 0 20px rgba(255,107,107,0.5)' }}>
+            <FiStopCircle className="w-5 h-5" /> 게임 강제 종료
+          </button>
+        )}
 
-        {/* Also join as participant */}
         {!isPlaying && (
-          <button
-            onClick={() => setView('join-room')}
-            className="btn-secondary w-full text-sm"
-          >
-            참여자로도 입장하기
+          <button onClick={() => setView('join-room')}
+            className="w-full bg-[#313541] text-[#00FFF5] font-bold py-3 rounded-full flex items-center justify-center gap-2 text-sm border border-[#00FFF5]/30 active:scale-95">
+            <FiLogIn className="w-4 h-4" /> 참여자로도 입장하기
           </button>
         )}
       </div>
