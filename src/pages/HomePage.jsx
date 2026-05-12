@@ -2,12 +2,11 @@ import React from 'react';
 import { FiPlus, FiLogIn } from 'react-icons/fi'; 
 import logoImg from '../assets/logo.png'; 
 
-// 🌟 내 프로젝트에 있는 useGame 훅을 불러옵니다. (경로는 프로젝트에 맞게 수정 필요!)
-// 보통 '../context/GameContext' 나 '../App' 등에 있을 확률이 높습니다.
-import { useGame } from '../context/GameContext'; 
+// 🌟 드디어 찾은 완벽한 경로! (contexts 에 s가 붙었습니다)
+import { useGame } from '../contexts/GameContext'; 
 
 function HomePage() {
-  // 🌟 라우터가 아니라, 앱 자체의 상태 변경 함수(dispatch)를 가져옵니다.
+  // 앱 전체를 조종하는 리모컨(dispatch) 가져오기
   const { dispatch } = useGame(); 
 
   return (
@@ -25,7 +24,7 @@ function HomePage() {
         <div className="w-full space-y-5">
           
           <button 
-            // 🌟 주소를 바꾸는 게 아니라, state의 view를 'create-room'으로 변경!
+            // 🌟 방 만들기 화면으로 갈아끼우기!
             onClick={() => dispatch({ type: 'SET_VIEW', payload: 'create-room' })}
             className="w-full bg-cyan-400 text-white font-bold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg"
           >
@@ -34,7 +33,7 @@ function HomePage() {
           </button>
 
           <button 
-            // 🌟 state의 view를 'join-room'으로 변경!
+            // 🌟 방 참여하기 화면으로 갈아끼우기!
             onClick={() => dispatch({ type: 'SET_VIEW', payload: 'join-room' })}
             className="w-full bg-[#313541] text-cyan-400 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition-all active:scale-95 shadow-lg border border-cyan-900"
           >
