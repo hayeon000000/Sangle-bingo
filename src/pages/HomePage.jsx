@@ -28,7 +28,7 @@ function HomePage() {
           
           {/* 🌟 3. 방 만들기 버튼: 클릭하면 '/create' 주소로 이동! */}
           <button 
-            onClick={() => navigate('/create')} 
+            onClick={() => navigate('/create-room')} 
             className="w-full bg-cyan-400 text-white font-semibold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition duration-300 hover:bg-cyan-500 hover:shadow-lg"
           >
             <FiPlus className="w-6 h-6 text-white" />
@@ -37,7 +37,7 @@ function HomePage() {
 
           {/* 🌟 4. 방 참여하기 버튼: 클릭하면 '/join' 주소로 이동! */}
           <button 
-            onClick={() => navigate('/join')} 
+            onClick={() => navigate('/join-room')} 
             className="w-full bg-[#313541] text-cyan-400 font-semibold py-4 px-6 rounded-full flex items-center justify-center gap-3 text-lg transition duration-300 hover:bg-[#3f4553] hover:shadow-lg"
           >
             <FiLogIn className="w-6 h-6 text-cyan-400" />
