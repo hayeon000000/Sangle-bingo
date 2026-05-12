@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusIcon, DoorIcon } from 'react-icons/fi'; // 아이콘 라이브러리 사용
+import { FiPlus, FiLogIn } from 'react-icons/fi'; // 아이콘 라이브러리 사용
 
 function HomePage() {
   // 사용자가 PC에 저장한 로고 이미지 경로 (예: src/assets/logo.png)
